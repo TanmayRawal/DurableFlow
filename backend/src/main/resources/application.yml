@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: durableflow
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/durableflow}
+    username: ${DATABASE_USER:durableflow}
+    password: ${DATABASE_PASSWORD:durableflow}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+server:
+  error:
+    include-message: never
+durableflow:
+  worker:
+    enabled: ${DURABLEFLOW_WORKER_ENABLED:false}
+    id: ${DURABLEFLOW_WORKER_ID:local-worker-1}

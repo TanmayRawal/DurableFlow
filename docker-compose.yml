@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: durableflow
+      POSTGRES_USER: durableflow
+      POSTGRES_PASSWORD: durableflow
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U durableflow -d durableflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/durableflow
+      DATABASE_USER: durableflow
+      DATABASE_PASSWORD: durableflow
+      REDIS_HOST: redis
+      DURABLEFLOW_WORKER_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8080:8080"
+  dashboard:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "8081:80"
