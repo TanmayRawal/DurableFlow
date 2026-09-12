@@ -1,0 +1,18 @@
+# Production overlay. Run together with docker-compose.yml; requires Docker Compose v2.24.4+.
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+  redis:
+    ports: !reset []
+    restart: unless-stopped
+  api:
+    ports: !reset []
+    environment:
+      DATABASE_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    restart: unless-stopped
+  dashboard:
+    ports: !override
+      - "80:80"
+    restart: unless-stopped

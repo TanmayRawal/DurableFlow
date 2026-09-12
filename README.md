@@ -47,6 +47,18 @@ docker compose up --build
 
 This starts PostgreSQL, Redis, the API + worker at `http://localhost:8080`, and the dashboard at `http://localhost:8081`. Use `noop` as a node handler type for the first end-to-end workflow; it is the intentionally deterministic demo handler. Stop the stack with `docker compose down`.
 
+## Deploy on a single server
+
+The production overlay keeps PostgreSQL, Redis, and the API on the internal Docker network and publishes only the dashboard on port 80. It also persists PostgreSQL data in a named volume.
+
+```bash
+cp .env.production.example .env.production
+# Edit .env.production and replace POSTGRES_PASSWORD with a long random value.
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+Use this setup behind HTTPS before sharing a public URL. The production Compose overlay requires Docker Compose v2.24.4 or later because it uses the Compose `!reset` tag to remove local-only port mappings.
+
 ### Dashboard
 
 ```bash

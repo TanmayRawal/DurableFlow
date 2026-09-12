@@ -8,3 +8,4 @@ frontend/vite.config.d.ts
 .vscode/
 *.iml
 .env
+.env.production
