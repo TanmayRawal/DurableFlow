@@ -203,7 +203,7 @@ pnpm build
 
 ## Operational boundaries
 
-DurableFlow is an intentionally focused MVP. It accepts only `https://` destinations and uses JSON HTTP requests, but it does not yet include authentication, per-tenant isolation, webhook signature verification, rate limiting, or a secrets vault. Add those controls before exposing an instance to untrusted public traffic. For a portfolio deployment, put it behind HTTPS and restrict access to the dashboard/API with a reverse proxy or an identity-aware gateway.
+DurableFlow is an intentionally focused MVP. Manual task controls are token-gated, but webhook trigger endpoints remain open by design and do not yet verify source signatures. It accepts only `https://` destinations and uses JSON HTTP requests, but it does not yet include per-tenant isolation, rate limiting, or a secrets vault. Add those controls before exposing an instance to untrusted public traffic. For a portfolio deployment, put it behind HTTPS and restrict access to the dashboard/API with a reverse proxy or an identity-aware gateway.
 
 ## Design decisions
 
