@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import io.tanmayrawal.durableflow.run.InvalidTaskTransitionException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @RestControllerAdvice
 class ApiExceptionHandler {
@@ -16,4 +17,8 @@ class ApiExceptionHandler {
     @ExceptionHandler(InvalidTaskTransitionException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     Map<String, String> invalidTaskTransition(InvalidTaskTransitionException exception) { return Map.of("error", exception.getMessage()); }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    Map<String, String> dataConflict(DataIntegrityViolationException exception) { return Map.of("error", "The requested record conflicts with existing data"); }
 }

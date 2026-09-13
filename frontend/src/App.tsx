@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createHttpAutomation, getRunBundle, taskAction, triggerAutomation } from './api';
+import { createHttpAutomation, getRunBundle, triggerAutomation } from './api';
 import { ExecutionTimeline } from './ExecutionTimeline';
 import { WorkflowGraph } from './WorkflowGraph';
 import { subscribeToRun } from './realtime';
 import type { RunBundle, TaskStatus, WorkflowDefinition } from './types';
 
-const workerId = 'console-operator';
 const metricOrder: TaskStatus[] = ['READY', 'RUNNING', 'RETRYING', 'SUCCEEDED'];
 const sampleEvent = '{\n  "event": "invoice.paid",\n  "invoiceId": "inv-42"\n}';
 
@@ -36,15 +35,16 @@ export default function App() {
     return subscribeToRun(bundle.run.id, (run) => setBundle((current) => current ? { ...current, run } : current), setSocketConnected);
   }, [bundle?.run.id]);
 
+  useEffect(() => {
+    if (!bundle || socketConnected) return;
+    const poll = window.setInterval(() => {
+      void getRunBundle(bundle.run.id).then(setBundle).catch(() => undefined);
+    }, 3000);
+    return () => window.clearInterval(poll);
+  }, [bundle?.run.id, socketConnected]);
+
   const metrics = useMemo(() => metricOrder.map((status) => ({ status, total: bundle?.run.tasks.filter((task) => task.status === status).length ?? 0 })), [bundle]);
   const webhookUrl = automation ? `${window.location.origin}/api/hooks/workflows/${automation.id}` : '';
-
-  const act = async (taskId: string, action: 'claim' | 'complete' | 'heartbeat') => {
-    if (!bundle) return;
-    setError('');
-    try { const run = await taskAction(bundle.run.id, taskId, action, workerId); setBundle({ ...bundle, run }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Task action failed'); }
-  };
 
   const createAutomation = async (event: React.FormEvent) => {
     event.preventDefault(); setError('');
@@ -98,6 +98,6 @@ export default function App() {
     {!bundle && !loading && <section className="empty"><span>03</span><h2>Watch your deliveries</h2><p>Create an automation above, send the sample event, or POST to its trigger URL. DurableFlow will open the run automatically and show the delivery result.</p></section>}
     {bundle && <><section className="metrics">{metrics.map(({ status, total }) => <article key={status}><span className={`metric-dot dot-${status.toLowerCase()}`} /><strong>{String(total).padStart(2, '0')}</strong><small>{status.toLowerCase().replace('_', ' ')}</small></article>)}<article><span className="metric-dot">v{bundle.definition.version}</span><strong>{bundle.run.status}</strong><small>run state</small></article></section>
       <section className="workspace"><div className="canvas-panel"><div className="panel-heading"><div><p className="eyebrow">{bundle.definition.name}</p><h2>Delivery graph</h2></div><span>Run {bundle.run.id.slice(0, 8)}</span></div><WorkflowGraph definition={bundle.definition} run={bundle.run} /></div><ExecutionTimeline tasks={bundle.run.tasks} /></section>
-      <section className="panel actions"><div className="panel-heading"><div><p className="eyebrow">Operator controls</p><h2>Manual task operations</h2></div><span>Worker: {workerId}</span></div><div className="action-grid">{bundle.run.tasks.map((task) => <article key={task.id}><div><strong>{task.nodeKey}</strong><span>{task.status}</span></div><div>{task.status === 'READY' && <button onClick={() => act(task.id, 'claim')}>Claim</button>}{task.status === 'RUNNING' && <><button className="secondary" onClick={() => act(task.id, 'heartbeat')}>Heartbeat</button><button onClick={() => act(task.id, 'complete')}>Complete</button></>}</div></article>)}</div></section></>}
+    </>}
   </main>;
 }

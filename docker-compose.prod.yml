@@ -11,6 +11,8 @@ services:
     environment:
       DATABASE_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      DURABLEFLOW_OPERATOR_TOKEN: ${DURABLEFLOW_OPERATOR_TOKEN:?Set DURABLEFLOW_OPERATOR_TOKEN in .env.production}
+      DURABLEFLOW_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS: ${DURABLEFLOW_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS:-*}
     restart: unless-stopped
   dashboard:
     ports: !override

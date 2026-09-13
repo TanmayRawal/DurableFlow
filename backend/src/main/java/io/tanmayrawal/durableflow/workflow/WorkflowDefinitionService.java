@@ -20,7 +20,8 @@ public class WorkflowDefinitionService {
     }
     public WorkflowDefinitionResponse create(CreateWorkflowRequest request) {
         validator.validate(request.graph());
-        WorkflowDefinitionEntity entity = new WorkflowDefinitionEntity(UUID.randomUUID(), request.name(), request.description(), 1, serialize(request.graph()), Instant.now());
+        int nextVersion = repository.findTopByNameOrderByVersionDesc(request.name()).map(existing -> existing.getVersion() + 1).orElse(1);
+        WorkflowDefinitionEntity entity = new WorkflowDefinitionEntity(UUID.randomUUID(), request.name(), request.description(), nextVersion, serialize(request.graph()), Instant.now());
         return toResponse(repository.save(entity));
     }
     public WorkflowDefinitionResponse get(UUID id) {

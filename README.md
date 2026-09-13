@@ -112,11 +112,11 @@ The production overlay keeps PostgreSQL, Redis, and the API on the internal Dock
 
 ```bash
 cp .env.production.example .env.production
-# Edit .env.production and replace POSTGRES_PASSWORD with a long random value.
+# Edit .env.production and replace both placeholder secrets with long random values.
 docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-Use this setup behind HTTPS before sharing a public URL. The production Compose overlay requires Docker Compose v2.24.4 or later because it uses the Compose `!reset` tag to remove local-only port mappings.
+Use this setup behind HTTPS before sharing a public URL. WebSocket origins default to `*` because the dashboard uses no browser cookies or credentials; set `DURABLEFLOW_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS=https://your-domain.example` when you introduce browser authentication. Manual task-control endpoints require `X-Operator-Token` and use a server-configured worker identity, never a caller-supplied `Worker-Id`. The production Compose overlay requires Docker Compose v2.24.4 or later because it uses the Compose `!reset` tag to remove local-only port mappings.
 
 ### Dashboard
 
@@ -167,10 +167,10 @@ curl -X POST http://localhost:8080/api/workflows/<definition-id>/runs \
 | `GET` | `/api/workflows/{id}` | Read a stored definition |
 | `POST` | `/api/workflows/validate` | Validate a graph without storing it |
 | `POST` | `/api/workflows/{id}/runs` | Start a persisted workflow run |
-| `POST` | `/api/runs/{runId}/tasks/{taskId}/claim` | Transition a ready task to running |
-| `POST` | `/api/runs/{runId}/tasks/{taskId}/complete` | Complete a task and schedule eligible dependents |
-| `POST` | `/api/runs/{runId}/tasks/{taskId}/heartbeat` | Extend the lease for the owning worker |
-| `POST` | `/api/runs/{runId}/tasks/{taskId}/fail` | Retry or dead-letter a failed task |
+| `POST` | `/api/runs/{runId}/tasks/{taskId}/claim` | Operator-only task claim; requires `X-Operator-Token` |
+| `POST` | `/api/runs/{runId}/tasks/{taskId}/complete` | Operator-only task completion; requires `X-Operator-Token` |
+| `POST` | `/api/runs/{runId}/tasks/{taskId}/heartbeat` | Operator-only lease extension; requires `X-Operator-Token` |
+| `POST` | `/api/runs/{runId}/tasks/{taskId}/fail` | Operator-only retry/dead-letter action; requires `X-Operator-Token` |
 | `GET` | `/api/runs/{runId}` | Read task states for one workflow run |
 | `POST` | `/api/hooks/workflows/{workflowDefinitionId}` | Trigger a workflow from an external webhook |
 

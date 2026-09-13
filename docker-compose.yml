@@ -26,6 +26,7 @@ services:
       DATABASE_PASSWORD: durableflow
       REDIS_HOST: redis
       DURABLEFLOW_WORKER_ENABLED: "true"
+      DURABLEFLOW_OPERATOR_TOKEN: ${DURABLEFLOW_OPERATOR_TOKEN:-local-development-only}
     depends_on:
       postgres:
         condition: service_healthy

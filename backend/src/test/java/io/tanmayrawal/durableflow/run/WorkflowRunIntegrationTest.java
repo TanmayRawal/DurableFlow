@@ -49,4 +49,12 @@ class WorkflowRunIntegrationTest {
         var afterCompletion = runs.complete(run.id(), root.id(), "worker-test");
         assertTrue(afterCompletion.tasks().stream().anyMatch(task -> task.nodeKey().equals("notify") && task.status() == TaskStatus.READY));
     }
+
+    @Test void createsASequentialVersionWhenAWorkflowNameIsReused() {
+        WorkflowGraph graph = new WorkflowGraph(List.of(new WorkflowGraph.WorkflowNode("deliver", "noop", null)), List.of());
+        var first = definitions.create(new WorkflowDefinitionService.CreateWorkflowRequest("versioned-flow", "first", graph));
+        var second = definitions.create(new WorkflowDefinitionService.CreateWorkflowRequest("versioned-flow", "second", graph));
+        assertEquals(1, first.version());
+        assertEquals(2, second.version());
+    }
 }

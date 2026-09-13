@@ -24,7 +24,3 @@ export function createHttpAutomation(name: string, url: string, body: unknown): 
 export function triggerAutomation(definitionId: string, payload: unknown): Promise<WorkflowRun> {
   return request(`/api/hooks/workflows/${definitionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(payload) });
 }
-
-export function taskAction(runId: string, taskId: string, action: 'claim' | 'complete' | 'heartbeat', workerId: string): Promise<WorkflowRun> {
-  return request(`/api/runs/${runId}/tasks/${taskId}/${action}`, { method: 'POST', headers: { 'Worker-Id': workerId } });
-}
