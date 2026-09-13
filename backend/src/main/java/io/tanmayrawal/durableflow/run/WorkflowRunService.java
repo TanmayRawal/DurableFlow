@@ -49,6 +49,7 @@ public class WorkflowRunService {
         Set<String> nodesWithInboundEdges = graph.edges() == null ? Set.of() : graph.edges().stream().map(WorkflowGraph.WorkflowEdge::to).collect(Collectors.toSet());
         List<TaskExecutionEntity> tasks = graph.nodes().stream()
                 .map(node -> new TaskExecutionEntity(UUID.randomUUID(), run.getId(), node.key(), node.handlerType(),
+                        serializeInput(node.config()),
                         nodesWithInboundEdges.contains(node.key()) ? TaskStatus.PENDING : TaskStatus.READY, now))
                 .toList();
         taskRepository.saveAll(tasks);
@@ -137,9 +138,9 @@ public class WorkflowRunService {
     private String serializeInput(JsonNode input) { try { return objectMapper.writeValueAsString(input == null ? Map.of() : input); } catch (JsonProcessingException e) { throw new IllegalArgumentException("Input cannot be serialized", e); } }
     private WorkflowRunResponse response(WorkflowRunEntity run, Collection<TaskExecutionEntity> tasks) {
         return new WorkflowRunResponse(run.getId(), run.getWorkflowDefinitionId(), run.getStatus(), run.getCreatedAt(), run.getStartedAt(), run.getCompletedAt(),
-                tasks.stream().map(t -> new TaskResponse(t.getId(), t.getNodeKey(), t.getHandlerType(), t.getStatus(), t.getAttempt())).toList());
+                tasks.stream().map(t -> new TaskResponse(t.getId(), t.getNodeKey(), t.getHandlerType(), t.getHandlerConfigJson(), t.getStatus(), t.getAttempt())).toList());
     }
     public record WorkflowRunResponse(UUID id, UUID workflowDefinitionId, WorkflowRunStatus status, Instant createdAt, Instant startedAt, Instant completedAt, List<TaskResponse> tasks) { }
-    public record TaskResponse(UUID id, String nodeKey, String handlerType, TaskStatus status, int attempt) { }
+    public record TaskResponse(UUID id, String nodeKey, String handlerType, String handlerConfigJson, TaskStatus status, int attempt) { }
     public record RecoverySummary(int expiredLeasesRecovered, int retriesPromoted) { }
 }

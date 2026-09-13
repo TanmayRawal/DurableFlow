@@ -8,11 +8,11 @@ import org.junit.jupiter.api.Test;
 class WorkflowGraphValidatorTest {
     private final WorkflowGraphValidator validator = new WorkflowGraphValidator();
     @Test void acceptsAnAcyclicGraph() {
-        var graph = new WorkflowGraph(List.of(new WorkflowGraph.WorkflowNode("a", "http"), new WorkflowGraph.WorkflowNode("b", "email")), List.of(new WorkflowGraph.WorkflowEdge("a", "b")));
+        var graph = new WorkflowGraph(List.of(new WorkflowGraph.WorkflowNode("a", "http", null), new WorkflowGraph.WorkflowNode("b", "email", null)), List.of(new WorkflowGraph.WorkflowEdge("a", "b")));
         assertDoesNotThrow(() -> validator.validate(graph));
     }
     @Test void rejectsCycles() {
-        var graph = new WorkflowGraph(List.of(new WorkflowGraph.WorkflowNode("a", "http"), new WorkflowGraph.WorkflowNode("b", "email")), List.of(new WorkflowGraph.WorkflowEdge("a", "b"), new WorkflowGraph.WorkflowEdge("b", "a")));
+        var graph = new WorkflowGraph(List.of(new WorkflowGraph.WorkflowNode("a", "http", null), new WorkflowGraph.WorkflowNode("b", "email", null)), List.of(new WorkflowGraph.WorkflowEdge("a", "b"), new WorkflowGraph.WorkflowEdge("b", "a")));
         assertThrows(InvalidWorkflowException.class, () -> validator.validate(graph));
     }
 }

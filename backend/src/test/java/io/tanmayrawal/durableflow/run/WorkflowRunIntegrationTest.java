@@ -39,7 +39,7 @@ class WorkflowRunIntegrationTest {
 
     @Test void schedulesDependentTasksOnlyAfterTheirPredecessorCompletes() {
         WorkflowGraph graph = new WorkflowGraph(
-                List.of(new WorkflowGraph.WorkflowNode("validate", "noop"), new WorkflowGraph.WorkflowNode("notify", "noop")),
+                List.of(new WorkflowGraph.WorkflowNode("validate", "noop", null), new WorkflowGraph.WorkflowNode("notify", "noop", null)),
                 List.of(new WorkflowGraph.WorkflowEdge("validate", "notify")));
         var definition = definitions.create(new WorkflowDefinitionService.CreateWorkflowRequest("integration-test", "test graph", graph));
         var run = runs.start(definition.id(), "test-key-1", objectMapper.createObjectNode());

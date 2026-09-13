@@ -9,6 +9,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "task_executions")
@@ -17,6 +19,8 @@ public class TaskExecutionEntity {
     @Column(name = "workflow_run_id", nullable = false) private UUID workflowRunId;
     @Column(name = "node_key", nullable = false) private String nodeKey;
     @Column(name = "handler_type", nullable = false) private String handlerType;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "handler_config_json", nullable = false, columnDefinition = "jsonb") private String handlerConfigJson;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false) private TaskStatus status;
     @Column(nullable = false) private int attempt;
@@ -31,14 +35,16 @@ public class TaskExecutionEntity {
     @Version @Column(name = "record_version") private long recordVersion;
 
     protected TaskExecutionEntity() { }
-    public TaskExecutionEntity(UUID id, UUID workflowRunId, String nodeKey, String handlerType, TaskStatus status, Instant now) {
+    public TaskExecutionEntity(UUID id, UUID workflowRunId, String nodeKey, String handlerType, String handlerConfigJson, TaskStatus status, Instant now) {
         this.id = id; this.workflowRunId = workflowRunId; this.nodeKey = nodeKey; this.handlerType = handlerType;
+        this.handlerConfigJson = handlerConfigJson;
         this.status = status; this.attempt = 0; this.maxAttempts = 3; this.createdAt = now; this.updatedAt = now;
     }
     public UUID getId() { return id; }
     public UUID getWorkflowRunId() { return workflowRunId; }
     public String getNodeKey() { return nodeKey; }
     public String getHandlerType() { return handlerType; }
+    public String getHandlerConfigJson() { return handlerConfigJson; }
     public TaskStatus getStatus() { return status; }
     public int getAttempt() { return attempt; }
     public Instant getCreatedAt() { return createdAt; }

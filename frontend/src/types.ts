@@ -23,7 +23,7 @@ export interface WorkflowDefinition {
   name: string;
   version: number;
   graph: {
-    nodes: { key: string; handlerType: string }[];
+    nodes: { key: string; handlerType: string; config?: unknown }[];
     edges: { from: string; to: string }[];
   };
 }

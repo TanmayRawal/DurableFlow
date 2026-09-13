@@ -1,10 +1,10 @@
 # DurableFlow
 
-DurableFlow is a fault-tolerant workflow execution engine for developer-defined DAGs. Definitions and task state are persisted; work is coordinated through expiring leases, bounded retries, and recovery of abandoned tasks.
+DurableFlow is a self-hosted webhook automation service. Connect a source application's webhook to an HTTPS endpoint, then inspect each delivery and automatic retry in one dashboard. Definitions and task state are persisted; work is coordinated through expiring leases, bounded retries, and recovery of abandoned tasks.
 
 ## What it does
 
-This repository provides a real Spring Boot API and operations dashboard for creating, validating, and running workflow definitions.
+This repository provides a real Spring Boot API and operations dashboard for creating webhook-to-HTTP automations and tracking their runs.
 
 - Validates unique node identifiers.
 - Rejects edges that point to nonexistent nodes.
@@ -16,7 +16,8 @@ This repository provides a real Spring Boot API and operations dashboard for cre
 - Requires idempotency keys for run creation and returns the existing run for a duplicate request.
 - Uses expiring worker leases, heartbeats, exponential retry backoff, and dead-lettering for failed work.
 - Uses a transactional outbox to publish task-ready events to Redis Streams after database state is committed.
-- Includes an opt-in Redis Stream worker with a deterministic `noop` handler for end-to-end demos; production handlers are registered explicitly by handler type.
+- Executes configured `http` tasks against HTTPS endpoints; non-2xx responses enter the normal retry and dead-letter flow.
+- Includes an opt-in worker that scans persisted ready tasks as a recovery-safe execution source; production handlers are registered explicitly by handler type.
 
 ## Architecture now
 
@@ -33,6 +34,8 @@ React operations dashboard
        PostgreSQL + Flyway
              |
        transactional outbox -> Redis Streams
+             |                    |
+             +---- durable Postgres task scan ----+
 ```
 
 The first release intentionally uses a modular monolith. A single deployable process makes transactions, debugging, and local development straightforward; its clear module boundaries allow the scheduler and worker runtime to split into services only if scale requires it.
@@ -67,7 +70,7 @@ pnpm install
 pnpm dev
 ```
 
-The Vite development server proxies `/api` to the Spring Boot service on port 8080. Paste a workflow run ID into the console to inspect its live task state and safely claim, heartbeat, or complete work as the console operator. The console subscribes to `/topic/runs/{runId}` over STOMP/WebSocket and updates after committed state transitions.
+The Vite development server proxies `/api` to the Spring Boot service on port 8080. Create an automation in the dashboard, set its HTTPS destination, then copy the generated webhook URL into the source application. Use **Send sample event** to test the complete flow. The console subscribes to `/topic/runs/{runId}` over STOMP/WebSocket and updates after committed state transitions.
 
 Create a definition, then start a run:
 
@@ -113,6 +116,18 @@ curl -X POST http://localhost:8080/api/workflows/<definition-id>/runs \
 | `POST` | `/api/runs/{runId}/tasks/{taskId}/heartbeat` | Extend the lease for the owning worker |
 | `POST` | `/api/runs/{runId}/tasks/{taskId}/fail` | Retry or dead-letter a failed task |
 | `GET` | `/api/runs/{runId}` | Read task states for one workflow run |
+| `POST` | `/api/hooks/workflows/{workflowDefinitionId}` | Trigger a workflow from an external webhook |
+
+### Webhook automation example
+
+Create a definition with an `http` node whose `config` contains an HTTPS URL, method, and optional JSON body. Then any service can start the automation by posting an event payload to:
+
+```bash
+curl -X POST http://localhost:8080/api/hooks/workflows/<definition-id> \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: event-123" \
+  -d '{"event":"invoice.paid","invoiceId":"inv-42"}'
+```
 
 ## Verification
 
@@ -132,7 +147,7 @@ pnpm build
 
 ## Design decisions
 
-- **Transactional outbox:** a task is stored and its dispatch intent is written in the same database transaction; a scheduler publishes that intent to Redis Streams after commit.
+- **Transactional outbox:** a task is stored and its dispatch intent is written in the same database transaction; a scheduler publishes that intent to Redis Streams after commit. The worker also scans persisted ready tasks, so a transient stream-consumer outage cannot strand a delivery.
 - **At-least-once workers:** workers must tolerate duplicate deliveries. The lease owner guards task transitions; abandoned leases become retries with exponential backoff and eventually dead-letter.
 - **Idempotent starts:** a definition ID and idempotency key uniquely identify a run request, preventing accidental duplicate workflow instances.
 - **Modular monolith:** workflow definition, orchestration, dispatch, worker runtime, and realtime modules are separable without premature distributed-system complexity.
