@@ -19,26 +19,82 @@ This repository provides a real Spring Boot API and operations dashboard for cre
 - Executes configured `http` tasks against HTTPS endpoints; non-2xx responses enter the normal retry and dead-letter flow.
 - Includes an opt-in worker that scans persisted ready tasks as a recovery-safe execution source; production handlers are registered explicitly by handler type.
 
-## Architecture now
+## System design
 
 ```text
-React operations dashboard
-             |
-       REST / WebSocket
-             |
- Spring Boot modular monolith
-     | workflow-definition module
-     | orchestration module (Milestone 2)
-     | worker-runtime module (Milestone 3)
-             |
-       PostgreSQL + Flyway
-             |
-       transactional outbox -> Redis Streams
-             |                    |
-             +---- durable Postgres task scan ----+
+                         ┌──────────────────────────┐
+Webhook source ────────► │  Spring Boot API          │ ◄──── React dashboard
+Stripe / GitHub / app    │  • definition module      │       REST + WebSocket
+                         │  • orchestration module   │
+                         └────────────┬─────────────┘
+                                      │ one database transaction
+                         ┌────────────▼─────────────┐
+                         │ PostgreSQL + Flyway       │
+                         │ definitions · runs · tasks│
+                         │ leases · retries · outbox │
+                         └────────────┬─────────────┘
+                                      ├─ committed task-ready event ─► Redis Streams
+                                      │                                asynchronous dispatch transport
+                                      │
+                                      │ scan persisted READY tasks
+                                      ▼
+                         ┌──────────────────────────┐
+                         │ Worker runtime            │
+                         │ claim → execute → complete│
+                         └────────────┬─────────────┘
+                                      │ HTTPS
+                                      ▼
+                              Destination endpoint
 ```
 
+Redis Streams is kept as the committed asynchronous dispatch transport. The worker's PostgreSQL scan is the recovery-safe execution path: every execution decision still comes from durable task state rather than a transient queue message.
+
 The first release intentionally uses a modular monolith. A single deployable process makes transactions, debugging, and local development straightforward; its clear module boundaries allow the scheduler and worker runtime to split into services only if scale requires it.
+
+### Delivery lifecycle
+
+```mermaid
+sequenceDiagram
+    participant S as Source application
+    participant A as DurableFlow API
+    participant P as PostgreSQL
+    participant W as Worker
+    participant D as HTTPS destination
+
+    S->>A: POST /api/hooks/workflows/{id}
+    A->>P: Persist run, task, idempotency key, and outbox event
+    A-->>S: 201 Created + run ID
+    W->>P: Claim READY task with expiring lease
+    W->>D: Execute configured HTTPS request
+    alt 2xx response
+        W->>P: Mark task and run SUCCEEDED
+    else timeout, network error, or non-2xx
+        W->>P: Mark RETRYING with exponential backoff
+        Note over P,W: After max attempts, mark DEAD_LETTER
+    end
+```
+
+### Reliability model
+
+| Concern | Mechanism | Result |
+| --- | --- | --- |
+| Duplicate source events | `(workflowDefinitionId, Idempotency-Key)` uniquely identifies a run | Repeated webhook posts return the original run instead of creating duplicate work. |
+| API/database crash | Task state and its outbox record are committed together | A task is never marked ready without a durable dispatch record. |
+| Worker crash mid-delivery | Worker lease expires after 30 seconds | Recovery moves abandoned work back into the retry flow. |
+| Destination outage | Bounded exponential retry: 5s, 10s, then 20s | Transient failures retry automatically; exhausted tasks remain inspectable as `DEAD_LETTER`. |
+| Redis interruption | Worker scans persisted `READY` tasks while the outbox continues to publish transport events | An unavailable or recreated stream consumer cannot permanently strand a delivery. |
+| Invalid workflow | Graph validation rejects duplicate nodes, missing references, and cycles | Only executable DAGs are persisted. |
+
+### Scaling path
+
+The current deployment is deliberately optimized for a single server and simple operations. When workload requires it, the same boundaries support a gradual scale-out:
+
+1. Run multiple API instances behind a load balancer; PostgreSQL remains the source of truth.
+2. Run worker instances separately, each with its own worker ID and lease ownership.
+3. Move PostgreSQL to a managed multi-AZ database and Redis to a managed cache.
+4. Partition task polling/streams by tenant or workflow ID and add a queue consumer group per partition.
+
+This is an evolution path, not a premature microservices design: task state, idempotency, and lease rules remain unchanged.
 
 ## Run locally
 
@@ -144,6 +200,10 @@ The dashboard type-checks and builds as a production bundle:
 cd frontend
 pnpm build
 ```
+
+## Operational boundaries
+
+DurableFlow is an intentionally focused MVP. It accepts only `https://` destinations and uses JSON HTTP requests, but it does not yet include authentication, per-tenant isolation, webhook signature verification, rate limiting, or a secrets vault. Add those controls before exposing an instance to untrusted public traffic. For a portfolio deployment, put it behind HTTPS and restrict access to the dashboard/API with a reverse proxy or an identity-aware gateway.
 
 ## Design decisions
 
